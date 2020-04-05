@@ -1,6 +1,6 @@
 # SearchBot
 
-**TODO: Add description**
+**An experimental rewrite of searchbot for elixir.**
 
 ## Installation
 
