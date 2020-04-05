@@ -21,6 +21,8 @@ defmodule SearchBot.Cogs.Leave do
   def command(msg, []) do
     prompt = "**This will make me leave the server!** Are you sure you want to do this?"
 
+    IO.puts "dobbingo"
+
     when_yes = fn (d) ->
       Api.edit_message!(
         d[:dialog],
