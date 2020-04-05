@@ -1,0 +1,6 @@
+config/
+mix.lock
+_build/
+.elixir_ls/
+.vscode/
+deps/
