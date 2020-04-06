@@ -1,9 +1,13 @@
 defmodule SearchBot.Consumer do
-  alias SearchBot.Consumer.MessageCreate
-  alias SearchBot.Cogs
+
+  use Nostrum.Consumer
 
   alias Nosedrum.Storage.ETS, as: CommandStorage
-  use Nostrum.Consumer
+  alias SearchBot.Cogs
+  alias SearchBot.Consumer.{
+    MessageCreate,
+    MessageReactionAdd
+  }
 
   @commands %{
     "leave" => Cogs.Leave
@@ -14,16 +18,18 @@ defmodule SearchBot.Consumer do
     Consumer.start_link(__MODULE__, max_restarts: 0)
   end
 
-  def handle_event({:READY, _data, _ws_state}) do
-    Enum.each(@commands, fn {name, cog} -> CommandStorage.add_command({name}, cog) end)
-    IO.puts("Dabbing")
-  end
-
   @impl true
   @spec handle_event(Nostrum.Consumer.event()) :: any()
+  def handle_event({:READY, _data, _ws_state}) do
+    Enum.each(@commands, fn {name, cog} -> CommandStorage.add_command({name}, cog) end)
+  end
+
   def handle_event({:MESSAGE_CREATE, msg, _ws_state}) do
-    IO.puts("dabs.")
     MessageCreate.handle(msg)
+  end
+
+  def handle_event({:MESSAGE_REACTION_ADD, reaction, _ws_state}) do
+    MessageReactionAdd.handle(reaction)
   end
 
   def handle_event(_data), do: :ok

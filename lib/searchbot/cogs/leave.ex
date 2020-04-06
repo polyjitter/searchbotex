@@ -1,4 +1,8 @@
 defmodule SearchBot.Cogs.Leave do
+  @moduledoc """
+
+  """
+
   @behaviour Nosedrum.Command
 
   alias Nosedrum.Predicates
@@ -21,17 +25,18 @@ defmodule SearchBot.Cogs.Leave do
   def command(msg, []) do
     prompt = "**This will make me leave the server!** Are you sure you want to do this?"
 
-    IO.puts "dobbingo"
+    IO.puts("dobbingo")
 
-    when_yes = fn (d) ->
+    when_yes = fn d ->
       Api.edit_message!(
         d[:dialog],
         content: "**Leaving server.** If you wish for me to return, add me back."
       )
+
       Api.leave_guild(d[:dialog].guild_id)
     end
 
-    when_no = &(Api.edit_message!(&1[:dialog], content: "**Leaving cancelled.**"))
+    when_no = &Api.edit_message!(&1[:dialog], content: "**Leaving cancelled.**")
 
     Confirmation.run(
       msg,
@@ -40,5 +45,4 @@ defmodule SearchBot.Cogs.Leave do
       when_no
     )
   end
-
 end

@@ -8,8 +8,9 @@ defmodule SearchBot.Application do
     Thanks for your hard work!
   """
 
-  require Logger
   use Application
+
+  require Logger
 
   @impl true
   @spec start(Application.start_type(), term()

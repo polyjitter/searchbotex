@@ -6,11 +6,11 @@ defmodule SearchBot.Confirmation do
 
   use GenServer
 
-  alias Nostrum.Api
-  alias Nostrum.Struct.{Message, Guild.Member}
-  alias Nostrum.Cache.{Me, GuildCache}
-
   import Task
+
+  alias Nostrum.Api
+  alias Nostrum.Cache.{Me, GuildCache}
+  alias Nostrum.Struct.{Message, Guild.Member}
 
   # Client API
 
@@ -34,12 +34,12 @@ defmodule SearchBot.Confirmation do
 
     GenServer.cast(__MODULE__, {:add, dialog_map})
 
-    Process.send_after(__MODULE__, {:drop, dialog_msg.id}, 1 * 60 * 1_000)
+    Process.send_after(__MODULE__, {:timeout, dialog_msg}, 1 * 60 * 1_000)
 
     {:ok, dialog_msg}
   end
 
-  # Server callbacks
+  # Server Callbacks
 
   @impl true
   def init(:ok) do
@@ -64,39 +64,48 @@ defmodule SearchBot.Confirmation do
       cond do
         reaction.emoji.name == check_mark ->
           dialog_map.yes_fun(dialog_map)
+          {:ok, GenServer.cast(__MODULE__, {:drop, dialog_map[:dialog].id})}
 
         reaction.emoji.name == cross_mark ->
           dialog_map.no_fun(dialog_map)
-      end
+          {:ok, GenServer.cast(__MODULE__, {:drop, dialog_map[:dialog].id})}
 
-      GenServer.cast(__MODULE__, {:drop, dialog_map[:dialog].id})
+        true ->
+          {:ok, nil}
+      end
     end
   end
 
   @impl true
   def handle_cast({:drop, message}, confirmations) do
-    Api.create_message!(message.channel_id, content: "**Confirmation timed out.**")
-    {:noreply, Map.delete(confirmations, Message)}
+    {:noreply, Map.delete(confirmations, message.id)}
+  end
+
+  @impl true
+  def handle_cast({:timeout, message}, confirmations) do
+    Api.edit_message!(message, content: "**Connection timed out.**")
+    {:noreply, Map.delete(confirmations, message.id)}
   end
 
   # Internals
 
   defp create_message(original_msg, prompt) do
+    perm_task =
+      async(fn ->
+        my_id = Me.get().id
+        my_member = Api.get_guild_member!(original_msg.guild_id, my_id)
+        this_guild = GuildCache.get!(original_msg.guild_id)
 
-    perm_task = async fn ->
-      my_id = Me.get().id
-      my_member = Api.get_guild_member!(original_msg.guild_id, my_id)
-      this_guild = GuildCache.get!(original_msg.guild_id)
-      Member.guild_channel_permissions(
-        my_member,
-        this_guild,
-        original_msg.channel_id
-      )
-    end
+        Member.guild_channel_permissions(
+          my_member,
+          this_guild,
+          original_msg.channel_id
+        )
+      end)
 
-    permissions = await perm_task
+    permissions = await(perm_task)
 
-    case Enum.member?(permissions, :add_reaction) do
+    case Enum.member?(permissions, :add_reactions) do
       true -> {true, do_react(original_msg, prompt)}
       false -> {false, do_read(original_msg, prompt)}
     end
@@ -106,13 +115,10 @@ defmodule SearchBot.Confirmation do
     check_mark = "\xE2\x9C\x94\xEF\xB8\x8F"
     cross_mark = "\xE2\x9D\x8C"
 
-    post_task = async fn ->
-      Api.create_message!(msg.channel_id, prompt)
-      Api.create_reaction!(msg.channel_id, msg.id, check_mark)
-      Api.create_reaction!(msg.channel_id, msg.id, cross_mark)
-    end
-
-    {:ok, dialog_msg} = await post_task
+    dialog_msg = Api.create_message!(msg.channel_id, prompt)
+    Api.create_reaction!(dialog_msg.channel_id, dialog_msg.id, check_mark)
+    Process.sleep(250)
+    Api.create_reaction!(dialog_msg.channel_id, dialog_msg.id, cross_mark)
 
     dialog_msg
   end
@@ -120,11 +126,12 @@ defmodule SearchBot.Confirmation do
   defp do_read(msg, prompt) do
     new_prompt = append_read_prompt(prompt)
 
-    post_task = async fn ->
-      Api.create_message(msg.channel_id, new_prompt)
-    end
+    post_task =
+      async(fn ->
+        Api.create_message(msg.channel_id, new_prompt)
+      end)
 
-    {:ok, dialog_msg} = await post_task
+    {:ok, dialog_msg} = await(post_task)
 
     dialog_msg
   end
