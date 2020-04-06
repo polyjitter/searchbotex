@@ -1,5 +1,4 @@
 defmodule SearchBot.Consumer do
-
   alias SearchBot.Consumer.MessageCreate
   alias SearchBot.Cogs
 
@@ -17,13 +16,13 @@ defmodule SearchBot.Consumer do
 
   def handle_event({:READY, _data, _ws_state}) do
     Enum.each(@commands, fn {name, cog} -> CommandStorage.add_command({name}, cog) end)
-    IO.puts "Dabbing"
+    IO.puts("Dabbing")
   end
 
   @impl true
   @spec handle_event(Nostrum.Consumer.event()) :: any()
   def handle_event({:MESSAGE_CREATE, msg, _ws_state}) do
-    IO.puts "dabs."
+    IO.puts("dabs.")
     MessageCreate.handle(msg)
   end
 
